@@ -59,6 +59,57 @@ The paper's natural images are not available, so we use the Berkeley Segmentatio
 - Estimate update: gradient descent on E (Eq. 7); basis update: Hebbian-like rule (Eq. 9)
 - Parameters from the paper: k1 = 0.5, σ² = 1, σ²_td = 10, α = 1, λ = 0.02, k2 initial 1, divided by 1.015 every 40 inputs
 
+## Status and results (so far)
+
+Reproduce with `.venv/bin/python experiments/<script>.py`:
+
+| Script | Purpose |
+|---|---|
+| `train_baseline.py` | stage-1 (level 1) then stage-2 (level 2) training; Fig. 2-style RFs |
+| `endstopping.py` | per-neuron endstopping, with/without feedback (Fig. 3/5-style) |
+| `fig4_autocorrelation.py` | Fig. 4 check: orientation autocorrelation on BSDS500 |
+| `sweep_level2.py`, `diagnose_level2.py`, `unexplained_vs_length.py`, `bottleneck_test.py` | level-2 diagnostics |
+| `run_extension.py`, `analyze_extension.py` | 5-seed length/orientation sweeps with CIs; produces `figures/extension_results.png` |
+
+**Replication: partial.** The network trains stably, level 2 couples centre and flank modules, and
+removing feedback changes the error-neuron response, but the effect is much smaller than the paper's
+(28/32 endstopped neurons, 82% removed by ablation). Learned level-1 RFs are noisy rather than clean Gabors
+(a linear-Gaussian model only fixes a subspace). BSDS500 has the paper's orientation autocorrelation
+structure qualitatively (along > orthogonal, 3-6x) but about half the magnitude (Fig. 4 check).
+
+**Extension (5 seeds, population error norm of the centre module, bar-length sweep):**
+suppression index S = (peak - plateau)/peak.
+
+| Stimulus | S with feedback | S without | difference |
+|---|---|---|---|
+| DoG bar, 0 deg | 25.2 +- 8.3 % | 7.3 +- 1.7 % | +17.8 +- 7.6 (p=0.003) |
+| raw bar, 0 deg | 20.3 +- 13.2 % | 0.1 +- 0.1 % | +20.2 +- 13.2 (p=0.013) |
+| DoG bar, 90 deg | 18.4 +- 19.9 % | 3.2 +- 0.2 % | +15.1 +- 20.0 (n.s.) |
+| raw bar, 90 deg | 5.4 +- 10.4 % | 0.0 +- 0.1 % | +5.4 +- 10.5 (n.s.) |
+
+Surround-orientation sweep: no detectable orientation-contrast effect
+(error(same)/error(orthogonal) about 0.95, same with and without feedback), unlike the paper's Fig. 6.
+Feedback therefore accounts for roughly 18-20 points of length-dependent suppression for bars
+extending across modules (0 deg), none detectable for the orthogonal axis.
+
+**Held-out check and alternative explanation** (`heldout_and_alternative.py`, same 5 trained nets, no re-tuning):
+bar widths 2 and 5 px and a 3 px vertical offset. The feedback effect keeps its sign in every condition
+(+7 to +20 points; p < 0.05 in 7 of 10 held-out conditions, 0.057-0.077 in 3) but with wide intervals (n = 5 seeds).
+A feedback-free divisive normalization (centre / sqrt(1 + beta * flank energy), one parameter fitted on the
+tuning conditions) gives suppression of similar size (raw bars: 7-18% vs 7-20% for feedback), so these bar-length
+data do not by themselves distinguish top-down prediction from surround normalization.
+
+**Deviations from the paper (must be disclosed in the report):**
+- BSDS500 instead of the paper's 5 images; DoG sigmas (1, 1.6), Gaussian window sigma 4 px chosen by us.
+- Weights shared across the three level-1 modules; batch updates (batch 4) scaled to mimic per-input steps.
+- Euler step size scaled by the spectral norm of U for stability; inference run for 40 steps (200 for tests).
+- Learning-rate schedule: k2 = 0.05, not decayed (paper: 1, divided by 1.015 every 40 inputs);
+  level-1 init column norm 1, level-2 init norm 5.
+- Staged training (level 1 then level 2) as in the paper's Methods, with level 2 fed bottom-up r1.
+- Level-1 responses standardised by one fixed constant (`r1_scale`) before level 2; without it U2 collapses.
+- Level 2 uses alpha2=0.01, lambda2=0.002, k2=0.5 (paper: 1, 0.02, shared), chosen by a small sweep.
+- No gain adaptation of basis vectors (disabled; it killed units).
+
 ## Reproducibility
 
 A reader should be able to clone this repository and regenerate every figure in the report. Seeds are fixed and recorded. Validation is done on known cases before any new experiment is trusted.
@@ -70,8 +121,9 @@ predictive-vision/
 ├── nn0199_79.pdf        # the paper
 ├── README.md
 ├── data/                # BSDS500 images and ground truth (present)
-├── src/                 # model, learning rules, stimuli, analysis
+├── src/                 # data, model, stimuli
 ├── experiments/         # scripts that regenerate each figure
+├── results/             # trained weights and pickled measurements
 ├── figures/             # generated plots
-└── report/              # final report
+└── report/              # final report (to do)
 ```
