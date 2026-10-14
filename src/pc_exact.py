@@ -89,17 +89,25 @@ class ExactPC:
     def k2(self):
         return self.p.k2_init / self.p.k2_decay ** (self.n_seen // self.p.decay_every)
 
-    def train_step(self, region):
+    def train_step(self, region, stage=0):
+        """One batch update (a batch of B applies B per-input steps, as in the paper's online rule).
+
+        stage 0: both levels jointly.  stage 1: level 1 only (no top-down; U2 untouched).
+        stage 2: level 2 only (U1 frozen), with full top-down inference.
+        The paper learns level-1 bases first and level-2 bases afterwards.
+        """
         p = self.p
-        out = self.infer(region, feedback=True)
+        out = self.infer(region, feedback=(stage != 1))
         B = len(region)
         r1, r2 = out["r1"], out["r2"]
         k2 = self.k2()
-        dU1 = (k2 / p.sigma2) * np.einsum("bmd,bmn->dn", out["resid_in"], r1) / (B * 3) \
-            - k2 * p.lam * self.U1
+        if stage in (0, 1):
+            dU1 = (k2 / p.sigma2) * np.einsum("bmd,bmn->dn", out["resid_in"], r1) / (B * 3) \
+                - k2 * p.lam * self.U1
+            self.U1 += B * dU1
         err2 = r1.reshape(B, -1) - r2 @ self.U2.T
-        dU2 = (k2 / p.sigma2_td) * (err2.T @ r2) / B - k2 * p.lam2 * self.U2
-        self.U1 += B * dU1
-        self.U2 += B * dU2
+        if stage in (0, 2):
+            dU2 = (k2 / p.sigma2_td) * (err2.T @ r2) / B - k2 * p.lam2 * self.U2
+            self.U2 += B * dU2
         self.n_seen += B
         return float(np.mean(out["resid_in"] ** 2)), float(np.mean(err2 ** 2))

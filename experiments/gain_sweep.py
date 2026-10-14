@@ -1,4 +1,4 @@
-"""Paper parameters, joint training; sweep the (arbitrary) input amplitude."""
+"""Paper parameters, STAGED training (level 1 then level 2); sweep the input amplitude and seeds."""
 import sys
 from multiprocessing import Pool
 from pathlib import Path
@@ -14,13 +14,16 @@ ROOT = Path(__file__).resolve().parents[1]
 LENGTHS = np.arange(1, 27, 2)
 
 
-def run(task, n_inputs=40000):
+def run(task, n_inputs=20000):
     gain, seed = task
     images, scale = load_images("train", return_scale=True)
     net = ExactPC(PCParams(gain=gain), seed=seed)
     rng = np.random.default_rng(seed)
-    for _ in range(n_inputs // 4):
-        net.train_step(sample_regions(images, 4, rng))
+    # stage 1: level 1 only; stage 2: level 2 only with U1 frozen (k2 schedule restarts)
+    for stage in (1, 2):
+        net.n_seen = 0
+        for _ in range(n_inputs // 4):
+            net.train_step(sample_regions(images, 4, rng), stage=stage)
     val = sample_regions(load_images("val", 100), 256, rng)
     o = net.infer(val)
     r1 = o["r1"].reshape(256, -1)
@@ -54,7 +57,7 @@ if __name__ == "__main__":
     ap.add_argument("--gains", type=float, nargs="+", default=[1, 3, 10, 30, 100, 300, 1000, 3000])
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--procs", type=int, default=os.cpu_count())
-    ap.add_argument("--inputs", type=int, default=40000)
+    ap.add_argument("--inputs", type=int, default=20000, help="inputs per stage")
     args = ap.parse_args()
     tasks = [(g, s) for g in args.gains for s in range(args.seeds)]
     procs = min(args.procs, len(tasks))
