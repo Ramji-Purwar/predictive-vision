@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LENGTHS = np.arange(1, 27, 2)
 
 
-def run(gain, n_inputs=40000, seed=0):
+def run(task, n_inputs=40000):
+    gain, seed = task
     images, scale = load_images("train", return_scale=True)
     net = ExactPC(PCParams(gain=gain), seed=seed)
     rng = np.random.default_rng(seed)
@@ -41,17 +42,28 @@ def run(gain, n_inputs=40000, seed=0):
             es[fb] = np.where(peak > 0, 100 * (peak - plateau) / peak, 0)
         res[whiten] = (int((es[True] > 50).sum()), int((es[False] > 50).sum()),
                        es[True].mean(), es[False].mean())
-    return gain, np.linalg.norm(net.U1, 2), np.linalg.norm(net.U2, 2), \
-        float(np.sqrt(np.mean(o["r1"] ** 2))), ev, res, net
+    np.savez(ROOT / "results" / f"exact_gain{gain}_seed{seed}.npz", U1=net.U1, U2=net.U2)
+    return gain, seed, np.linalg.norm(net.U1, 2), np.linalg.norm(net.U2, 2), \
+        float(np.sqrt(np.mean(o["r1"] ** 2))), ev, res
 
 
 if __name__ == "__main__":
-    gains = [1, 10, 30, 100, 300, 1000]
-    with Pool(len(gains)) as p:
-        out = p.map(run, gains)
-    print("gain | |U1| |U2| rms(r1) EV | DoG bars: n>50% fb/nofb, meanES fb/nofb | raw bars")
-    for g, u1, u2, rr, ev, res, net in out:
+    import argparse
+    import os
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--gains", type=float, nargs="+", default=[1, 3, 10, 30, 100, 300, 1000, 3000])
+    ap.add_argument("--seeds", type=int, default=3)
+    ap.add_argument("--procs", type=int, default=os.cpu_count())
+    ap.add_argument("--inputs", type=int, default=40000)
+    args = ap.parse_args()
+    tasks = [(g, s) for g in args.gains for s in range(args.seeds)]
+    procs = min(args.procs, len(tasks))
+    print(f"{len(tasks)} runs on {procs} processes", flush=True)
+    from functools import partial
+    with Pool(procs) as p:
+        out = p.map(partial(run, n_inputs=args.inputs), tasks)
+    print("gain seed | |U1| |U2| rms(r1) EV | DoG bars: n>50% fb/nofb, meanES fb/nofb | raw bars")
+    for g, sd, u1, u2, rr, ev, res in out:
         a, b = res[True], res[False]
-        print(f"{g:5d} | {u1:7.2f} {u2:7.2f} {rr:6.2f} {ev:5.2f} | {a[0]:2d}/{a[1]:2d} {a[2]:5.1f}/{a[3]:5.1f} "
-              f"| {b[0]:2d}/{b[1]:2d} {b[2]:5.1f}/{b[3]:5.1f}")
-        np.savez(ROOT / "results" / f"exact_gain{g}.npz", U1=net.U1, U2=net.U2)
+        print(f"{g:6g} {sd:3d} | {u1:8.2f} {u2:8.2f} {rr:7.2f} {ev:5.2f} | {a[0]:2d}/{a[1]:2d} {a[2]:5.1f}/{a[3]:5.1f} "
+              f"| {b[0]:2d}/{b[1]:2d} {b[2]:5.1f}/{b[3]:5.1f}", flush=True)
