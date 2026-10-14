@@ -1,7 +1,5 @@
 # Predictive Vision
 
-CG 501 (Computation and Cognition) course project: replicate and extend
-
 > Rao, R. P. N. & Ballard, D. H. (1999). *Predictive coding in the visual cortex: a functional interpretation of some extra-classical receptive-field effects.* Nature Neuroscience 2(1), 79–87. (`nn0199_79.pdf`)
 
 ## Idea
@@ -61,26 +59,6 @@ The paper's natural images are not available, so we use the Berkeley Segmentatio
 - Estimate update: gradient descent on E (Eq. 7); basis update: Hebbian-like rule (Eq. 9)
 - Parameters from the paper: k1 = 0.5, σ² = 1, σ²_td = 10, α = 1, λ = 0.02, k2 initial 1, divided by 1.015 every 40 inputs
 
-## Timeline
-
-| When | Work |
-|---|---|
-| By 20 Oct | Mid-term presentation video (idea, background, methods, analysis plan, timeline, expected outcomes) |
-| 21–29 Oct | Baseline model and preprocessing, Fig. 2 reproduced |
-| 30 Oct–5 Nov | Endstopping and feedback ablation, Figs. 3 and 5 reproduced |
-| 6–12 Nov | Extension: context sweeps, seeds, statistics, plots |
-| 13–20 Nov | Report (1500–3000 words), end-term video, clean repository |
-| 26 Nov | Individual peer reviews |
-
-Fallback: if endstopping does not reproduce by about 1 Nov, report what did and did not reproduce and why, and run the sweeps on whatever the baseline supports.
-
-## Deliverables
-
-- Mid-term presentation video, due 20 Oct 2026, 10 PM
-- End-term presentation video, due 20 Nov 2026, 10 PM
-- Codebase and report (PDF), due 20 Nov 2026, 10 PM
-- Peer reviews (individual), due 26 Nov 2026, 10 PM
-
 ## Reproducibility
 
 A reader should be able to clone this repository and regenerate every figure in the report. Seeds are fixed and recorded. Validation is done on known cases before any new experiment is trusted.
@@ -97,7 +75,3 @@ predictive-vision/
 ├── figures/             # generated plots
 └── report/              # final report
 ```
-
-## Team
-
-_Names and contributions TBD._
